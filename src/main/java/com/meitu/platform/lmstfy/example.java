@@ -16,16 +16,21 @@ public class example {
     private static String host = "localhost";
     private static int port = 7777;
     private static String namespace = "sdk-test";
+    private static String queue = "sdk-test-queue";
+    private static LmstfyClient client = new LmstfyClient(host, port, namespace, token);
 
     public static void main(String[] args) {
         publish();
         consume();
+        deleteAndAck();
+        queueSize();
+        peekQueue();
+        peekJob();
     }
 
     private static void publish() {
-        LmstfyClient client = new LmstfyClient(host, port, namespace, token);
         try {
-            String jobID = client.publish("sdk-test-queue", "test data".getBytes(), 5, (short) 2, 0);
+            String jobID = client.publish(queue, "test data".getBytes(), 5, (short) 2, 0);
             System.out.println(jobID);
         } catch (LmstfyException e) {
             e.printStackTrace();
@@ -33,9 +38,8 @@ public class example {
     }
 
     private static void consume() {
-        LmstfyClient client = new LmstfyClient(host, port, namespace, token);
         try {
-            Job job = client.consume(3, 2, "sdk-test-queue");
+            Job job = client.consume(3, 2, queue);
             System.out.println(job.getData());
         } catch (LmstfyNotJobException e) {
             System.out.println("There has no available job");
@@ -43,5 +47,60 @@ public class example {
             System.out.println("Request Lmstfy error, " + e.getMessage());
         }
     }
+
+    private static void deleteAndAck() {
+        try {
+            String jobID1 = client.publish(queue, "test data".getBytes(), 5, (short) 2, 0);
+            client.delete(queue, jobID1);
+            String jobID2 = client.publish(queue, "test data".getBytes(), 5, (short) 2, 0);
+            client.ack(queue, jobID2);
+        } catch (LmstfyException e) {
+            System.out.println("Request Lmstfy error, " + e.getMessage());
+        }
+    }
+
+    private static void queueSize() {
+        try {
+            int size1 = client.queueSize(queue);
+            client.publish(queue, "test data".getBytes(), 5, (short) 2, 0);
+            int size2 = client.queueSize(queue);
+            System.out.printf("%d %d\n", size1, size2);
+        } catch (LmstfyException e) {
+            System.out.println("Request Lmstfy error, " + e.getMessage());
+        }
+    }
+
+    private static void peekQueue() {
+        try {
+            Job job = client.peekQueue(queue);
+            if (job == null) {
+                System.out.println("There has no available job to peek");
+                return;
+            }
+            if (job.getData() == null) {
+                System.out.printf("The job %s is expired\n", job.getJobID());
+            } else {
+                System.out.println(job.getData());
+            }
+
+        } catch (LmstfyException e) {
+            System.out.println("Request Lmstfy error, " + e.getMessage());
+        }
+    }
+
+    private static void peekJob() {
+        try {
+            String jobID = client.publish(queue, "test data".getBytes(), 5, (short) 2, 0);
+            Job job = client.peekJob(queue, jobID);
+            if (job == null) {
+                System.out.println("There has no available job");
+            } else {
+                System.out.printf("%s\n", job.getData());
+            }
+        } catch (LmstfyException e) {
+            System.out.println("Request Lmstfy error, " + e.getMessage());
+        }
+    }
+
 
 }

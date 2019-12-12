@@ -2,12 +2,10 @@ package com.meitu.platform.lmstfy.client;
 
 import com.meitu.platform.lmstfy.exception.LmstfyException;
 import com.meitu.platform.lmstfy.exception.LmstfyIllegalRequestException;
+import com.meitu.platform.lmstfy.exception.LmstfyNotJobException;
 import com.meitu.platform.lmstfy.exception.LmstfyUnexpectedException;
-import com.meitu.platform.lmstfy.response.ErrorResponse;
+import com.meitu.platform.lmstfy.response.*;
 import com.meitu.platform.lmstfy.Job;
-import com.meitu.platform.lmstfy.response.LmstfyResponse;
-import com.meitu.platform.lmstfy.response.PublishResponse;
-import com.meitu.platform.lmstfy.response.QueueSizeResponse;
 import okhttp3.*;
 
 import java.io.IOException;
@@ -31,6 +29,7 @@ public class LmstfyClient {
     private static final String QUERY_TRIES = "tries";
     private static final String QUERY_TIMEOUT = "timeout";
     private static final String QUERY_TTR = "ttr";
+    private static final String QUERY_LIMIT = "limit";
 
     private String namespace;
     private String token;
@@ -39,7 +38,9 @@ public class LmstfyClient {
     private HttpUrl serviceAddress;
 
 
-    public LmstfyClient(String host, int port, String namespace, String token) {
+    public LmstfyClient(String host, int port, String namespace, String token,
+                        int readTimeoutSecond, int writeTimeoutSecond, int connectTimeoutSecond,
+                        int retryTimes, int retryIntervalMilliseconds) {
         this.namespace = namespace;
         this.token = token;
         this.serviceAddress = new HttpUrl.Builder()
@@ -50,12 +51,16 @@ public class LmstfyClient {
 
         this.http = new OkHttpClient.Builder()
                 .retryOnConnectionFailure(true)
-                .addInterceptor(new OkHttpRetryInterceptor(3, 100))
-                .readTimeout(600, TimeUnit.SECONDS)
-                .writeTimeout(600, TimeUnit.SECONDS)
-                .connectTimeout(5, TimeUnit.SECONDS)
+                .addInterceptor(new OkHttpRetryInterceptor(retryTimes, retryIntervalMilliseconds))
+                .readTimeout(readTimeoutSecond, TimeUnit.SECONDS)
+                .writeTimeout(writeTimeoutSecond, TimeUnit.SECONDS)
+                .connectTimeout(connectTimeoutSecond, TimeUnit.SECONDS)
                 .connectionPool(new ConnectionPool(100, 5, TimeUnit.MINUTES))
                 .build();
+    }
+
+    public LmstfyClient(String host, int port, String namespace, String token) {
+        this(host, port, namespace, token, 600, 600, 5, 3, 100);
     }
 
     private LmstfyResponse doRequest(String method, HttpUrl url, RequestBody body) throws LmstfyException {
@@ -114,7 +119,7 @@ public class LmstfyClient {
      *                      a job; if it's positive, this method would polling for new job until timeout.
      * @param queues        You can consume multiple queues of the same namespace at once. The order of the queues in
      *                      the params implies the priority.
-     * @return Return the job, if there is no job available, it will return null.
+     * @return Return the job.
      * @throws LmstfyException
      */
     public Job consume(int ttrSecond, int timeoutSecond, String... queues) throws LmstfyException {
@@ -126,14 +131,12 @@ public class LmstfyClient {
         LmstfyResponse response = this.doRequest("GET", url, null);
         switch (response.getCode()) {
             case HTTP_OK:
-                Job job = response.unmarshalBody(Job.class);
-                job.setData(new String(Base64.getDecoder().decode(job.getBase64Data())));
-                return job;
+                return response.unmarshalToJob();
             case HTTP_BAD_REQUEST:
                 ErrorResponse errorResponse = response.unmarshalBody(ErrorResponse.class);
                 throw new LmstfyIllegalRequestException(response.getCode(), errorResponse.getError());
             case HTTP_NOT_FOUND:
-                return null;
+                throw new LmstfyNotJobException();
             default:
                 throw new LmstfyUnexpectedException(response.getCode());
         }
@@ -223,15 +226,78 @@ public class LmstfyClient {
         return this.peek(url);
     }
 
+    /**
+     * Peek the deadletter of the queue
+     *
+     * @param queue
+     * @return
+     * @throws LmstfyException
+     */
+    public DeadLetterResponse peekDeadLetter(String queue) throws LmstfyException {
+        HttpUrl url = genServiceUrlBuilder(PATH_API, this.namespace, queue, "deadletter")
+                .build();
+
+        LmstfyResponse response = doRequest("GET", url, null);
+        switch (response.getCode()) {
+            case HTTP_OK:
+                DeadLetterResponse deadLetterResponse = response.unmarshalBody(DeadLetterResponse.class);
+                return deadLetterResponse;
+            default:
+                throw new LmstfyUnexpectedException(response.getCode());
+        }
+    }
+
     private Job peek(HttpUrl url) throws LmstfyException {
         LmstfyResponse response = doRequest("GET", url, null);
         switch (response.getCode()) {
             case HTTP_OK:
-                Job job = response.unmarshalBody(Job.class);
-                job.setData(new String(Base64.getDecoder().decode(job.getBase64Data())));
-                return job;
+                return response.unmarshalToJob();
             case HTTP_NOT_FOUND:
                 return null;
+            default:
+                throw new LmstfyUnexpectedException(response.getCode());
+        }
+    }
+
+    /**
+     * Respawn job(s) in the dead letter
+     *
+     * @param queue
+     * @param limit     The number (upper limit) of the jobs to be respawned.
+     * @param ttlSecond Time-to-live of this job in seconds, 0 means forever.
+     * @return The number of jobs that're respawned.
+     * @throws LmstfyException
+     */
+    public int respawnDeadLetter(String queue, int limit, int ttlSecond) throws LmstfyException {
+        HttpUrl url = genServiceUrlBuilder(PATH_API, this.namespace, queue, "deadletter")
+                .addQueryParameter(QUERY_LIMIT, String.valueOf(limit))
+                .addQueryParameter(QUERY_TTL, String.valueOf(ttlSecond))
+                .build();
+        LmstfyResponse response = doRequest("PUT", url, null);
+        switch (response.getCode()) {
+            case HTTP_OK:
+                RespawnResponse respawnResponse = response.unmarshalBody(RespawnResponse.class);
+                return respawnResponse.getCount();
+            default:
+                throw new LmstfyUnexpectedException(response.getCode());
+        }
+    }
+
+    /**
+     * Delete job(s) in the dead letter
+     *
+     * @param queue
+     * @param limit The number (upper limit) of the jobs to be deleted
+     * @throws LmstfyException
+     */
+    public void deleteDeadLetter(String queue, int limit) throws LmstfyException {
+        HttpUrl url = genServiceUrlBuilder(PATH_API, this.namespace, queue, "deadletter")
+                .addQueryParameter(QUERY_LIMIT, String.valueOf(limit))
+                .build();
+        LmstfyResponse response = doRequest("DELETE", url, null);
+        switch (response.getCode()) {
+            case HTTP_NO_CONTENT:
+                return;
             default:
                 throw new LmstfyUnexpectedException(response.getCode());
         }

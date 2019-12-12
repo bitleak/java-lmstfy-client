@@ -1,9 +1,11 @@
 package com.meitu.platform.lmstfy.response;
 
 import com.google.gson.Gson;
+import com.meitu.platform.lmstfy.Job;
 import okhttp3.Response;
 
 import java.io.IOException;
+import java.util.Base64;
 
 /**
  * Description:
@@ -45,5 +47,13 @@ public class LmstfyResponse {
 
     public <T> T unmarshalBody(Class<T> tClass) {
         return gson.fromJson(this.body, tClass);
+    }
+
+    public Job unmarshalToJob() {
+        Job job = gson.fromJson(this.body, Job.class);
+        if (job.getBase64Data() != null) {
+            job.setData(new String(Base64.getDecoder().decode(job.getBase64Data())));
+        }
+        return job;
     }
 }
