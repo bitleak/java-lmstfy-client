@@ -6,7 +6,7 @@
 
     <groupId>com.meitu</groupId>
     <artifactId>java-lmstfy-client</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.0.0</version>
     <dependencies>
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
@@ -63,6 +63,5 @@
             </plugin>
         </plugins>
     </build>
-
 
 </project>

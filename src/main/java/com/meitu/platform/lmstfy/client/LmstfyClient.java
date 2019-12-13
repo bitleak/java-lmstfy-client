@@ -107,7 +107,6 @@ public class LmstfyClient {
             default:
                 throw new LmstfyUnexpectedException(response.getCode());
         }
-
     }
 
     /**
@@ -273,7 +272,7 @@ public class LmstfyClient {
                 .addQueryParameter(QUERY_LIMIT, String.valueOf(limit))
                 .addQueryParameter(QUERY_TTL, String.valueOf(ttlSecond))
                 .build();
-        LmstfyResponse response = doRequest("PUT", url, null);
+        LmstfyResponse response = doRequest("PUT", url, RequestBody.create(MediaType.parse("text/binary"), new byte[]{}));
         switch (response.getCode()) {
             case HTTP_OK:
                 RespawnResponse respawnResponse = response.unmarshalBody(RespawnResponse.class);

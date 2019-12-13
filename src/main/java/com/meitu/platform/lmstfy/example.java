@@ -3,6 +3,7 @@ package com.meitu.platform.lmstfy;
 import com.meitu.platform.lmstfy.client.LmstfyClient;
 import com.meitu.platform.lmstfy.exception.LmstfyException;
 import com.meitu.platform.lmstfy.exception.LmstfyNotJobException;
+import com.meitu.platform.lmstfy.response.DeadLetterResponse;
 
 /**
  * Description:
@@ -26,6 +27,8 @@ public class example {
         queueSize();
         peekQueue();
         peekJob();
+        peekDeadLetter();
+        respawnDeadLetter();
     }
 
     private static void publish() {
@@ -82,7 +85,6 @@ public class example {
             } else {
                 System.out.println(job.getData());
             }
-
         } catch (LmstfyException e) {
             System.out.println("Request Lmstfy error, " + e.getMessage());
         }
@@ -97,6 +99,24 @@ public class example {
             } else {
                 System.out.printf("%s\n", job.getData());
             }
+        } catch (LmstfyException e) {
+            System.out.println("Request Lmstfy error, " + e.getMessage());
+        }
+    }
+
+    private static void peekDeadLetter() {
+        try {
+            DeadLetterResponse deadLetterResponse = client.peekDeadLetter(queue);
+            System.out.println(deadLetterResponse.getDeadLetterSize());
+        } catch (LmstfyException e) {
+            System.out.println("Request Lmstfy error, " + e.getMessage());
+        }
+    }
+
+    private static void respawnDeadLetter() {
+        try {
+            int count = client.respawnDeadLetter(queue, 1, 60);
+            System.out.println("Respawn deadletter count: " + count);
         } catch (LmstfyException e) {
             System.out.println("Request Lmstfy error, " + e.getMessage());
         }
