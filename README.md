@@ -27,3 +27,7 @@ mvn clean install
 mvn clean install -P quick
 
 ```
+
+### Use Cases
+
+[Click here to see more use cases](src/main/java/com/meitu/platform/lmstfy/Example.java).
