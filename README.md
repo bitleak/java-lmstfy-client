@@ -12,7 +12,7 @@ You can import the SDK into your project as follows:
 <dependency>
     <groupId>com.meitu</groupId>
     <artifactId>java-lmstfy-client</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
 </dependency>
 ```
 
