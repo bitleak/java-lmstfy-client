@@ -11,9 +11,9 @@ import com.meitu.platform.lmstfy.response.DeadLetterResponse;
  * @author Yesphet
  * @date 2019-12-06
  */
-public class example {
+public class Example {
 
-    private static String token = "01DVCJBB8XZTB73SSDCZ4Q6VZN";
+    private static String token = "01E2FQ865WA27WWP9NEWCQ08R3";
     private static String host = "localhost";
     private static int port = 7777;
     private static String namespace = "sdk-test";
@@ -21,9 +21,12 @@ public class example {
     private static LmstfyClient client = new LmstfyClient(host, port, namespace, token);
 
     public static void main(String[] args) {
-        publish();
+        for (int i = 0; i < 4; i++) {
+            publish();
+        }
         consume();
         deleteAndAck();
+        batchConsume();
         queueSize();
         peekQueue();
         peekJob();
@@ -44,6 +47,17 @@ public class example {
         try {
             Job job = client.consume(3, 2, queue);
             System.out.println(job.getData());
+        } catch (LmstfyNotJobException e) {
+            System.out.println("There has no available job");
+        } catch (LmstfyException e) {
+            System.out.println("Request Lmstfy error, " + e.getMessage());
+        }
+    }
+
+    private static void batchConsume() {
+        try {
+            Job[] jobs = client.batchConsume(3, 3, 2, queue);
+            System.out.println(jobs.length);
         } catch (LmstfyNotJobException e) {
             System.out.println("There has no available job");
         } catch (LmstfyException e) {

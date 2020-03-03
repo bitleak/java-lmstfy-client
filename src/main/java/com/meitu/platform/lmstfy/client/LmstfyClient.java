@@ -30,6 +30,7 @@ public class LmstfyClient {
     private static final String QUERY_TIMEOUT = "timeout";
     private static final String QUERY_TTR = "ttr";
     private static final String QUERY_LIMIT = "limit";
+    private static final String QUERY_COUNT = "count";
 
     private String namespace;
     private String token;
@@ -125,6 +126,7 @@ public class LmstfyClient {
         HttpUrl url = this.genServiceUrlBuilder(PATH_API, this.namespace, String.join(",", queues))
                 .addQueryParameter(QUERY_TIMEOUT, String.valueOf(timeoutSecond))
                 .addQueryParameter(QUERY_TTR, String.valueOf(ttrSecond))
+                .addQueryParameter(QUERY_COUNT, String.valueOf(1))
                 .build();
 
         LmstfyResponse response = this.doRequest("GET", url, null);
@@ -142,8 +144,50 @@ public class LmstfyClient {
     }
 
     /**
+     * BatchConsume consumes some jobs. Consuming will decrease these jobs tries by 1 first.
+     * BatchConsume supports consume from one queue only.
+     *
+     * @param count         count is the job count of this consume. If it's zero or over 100, this method will return an error.
+     *                      If it's positive, this method would return some jobs, and it's count is between 0 and count.
+     * @param ttrSecond     ttrSecond is the time-to-run of these jobs. If these jobs are not finished before the TTR expires,
+     *                      these job will be released for consuming again if the `(tries - 1) > 0`.
+     * @param timeoutSecond The long-polling wait time. If it's zero, this method will return immediately with or without
+     *                      a job; if it's positive, this method would polling for new job until timeout.
+     * @param queue
+     * @return
+     * @throws LmstfyException
+     */
+    public Job[] batchConsume(int count, int ttrSecond, int timeoutSecond, String queue) throws LmstfyException {
+        if (count < 1) {
+            throw new LmstfyException("consume count must greater than 0");
+        }
+        if (count == 1) {
+            return new Job[]{consume(ttrSecond, timeoutSecond, queue)};
+        }
+
+        HttpUrl url = this.genServiceUrlBuilder(PATH_API, this.namespace, queue)
+                .addQueryParameter(QUERY_TIMEOUT, String.valueOf(timeoutSecond))
+                .addQueryParameter(QUERY_TTR, String.valueOf(ttrSecond))
+                .addQueryParameter(QUERY_COUNT, String.valueOf(count))
+                .build();
+
+        LmstfyResponse response = this.doRequest("GET", url, null);
+        switch (response.getCode()) {
+            case HTTP_OK:
+                return response.unmarshalToJobs();
+            case HTTP_BAD_REQUEST:
+                ErrorResponse errorResponse = response.unmarshalBody(ErrorResponse.class);
+                throw new LmstfyIllegalRequestException(response.getCode(), errorResponse.getError());
+            case HTTP_NOT_FOUND:
+                throw new LmstfyNotJobException();
+            default:
+                throw new LmstfyUnexpectedException(response.getCode());
+        }
+    }
+
+    /**
      * Mark a job as finished, so it won't be retried by others.
-     * It's same as ack(queue,jobID)
+     * It's same as delete(queue,jobID)
      *
      * @param queue
      * @param jobID

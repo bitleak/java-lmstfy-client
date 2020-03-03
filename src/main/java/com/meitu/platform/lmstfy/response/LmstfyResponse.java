@@ -56,4 +56,14 @@ public class LmstfyResponse {
         }
         return job;
     }
+
+    public Job[] unmarshalToJobs() {
+        Job[] jobs = gson.fromJson(this.body, Job[].class);
+        for (Job job : jobs) {
+            if (job.getBase64Data() != null) {
+                job.setData(new String(Base64.getDecoder().decode(job.getBase64Data())));
+            }
+        }
+        return jobs;
+    }
 }
