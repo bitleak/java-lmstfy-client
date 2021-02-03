@@ -7,7 +7,7 @@
     <groupId>com.meitu</groupId>
     <artifactId>java-lmstfy-client</artifactId>
     <name>java-lmstfy-client</name>
-    <version>1.0.1</version>
+    <version>1.0.2</version>
     <description>Java client for LMSTFY</description>
     <url>https://github.com/meitu/java-lmstfy-client</url>
 

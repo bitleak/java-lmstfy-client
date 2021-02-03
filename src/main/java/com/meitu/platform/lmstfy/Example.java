@@ -13,7 +13,7 @@ import com.meitu.platform.lmstfy.response.DeadLetterResponse;
  */
 public class Example {
 
-    private static String token = "01E2FQ865WA27WWP9NEWCQ08R3";
+    private static String token = "01EXKH08T648VHWD64BND16CXR";
     private static String host = "localhost";
     private static int port = 7777;
     private static String namespace = "sdk-test";

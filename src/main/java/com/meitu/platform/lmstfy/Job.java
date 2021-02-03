@@ -16,11 +16,12 @@ public class Job {
     private String jobID;
     @SerializedName("data")
     private String base64Data;
-    private int ttl;
+    // use long type in order to prevent exceptions from decoding uint
+    private long ttl;
     @SerializedName("elapsed_ms")
-    private int elapsedMS;
+    private long elapsedMS;
     @SerializedName("remain_tries")
-    private int remainTries;
+    private long remainTries;
     private transient String data;
 
     public String getNamespace() {
@@ -55,7 +56,7 @@ public class Job {
         this.base64Data = data;
     }
 
-    public int getTtl() {
+    public long getTtl() {
         return ttl;
     }
 
@@ -63,7 +64,7 @@ public class Job {
         this.ttl = ttl;
     }
 
-    public int getElapsedMS() {
+    public long getElapsedMS() {
         return elapsedMS;
     }
 
@@ -71,7 +72,7 @@ public class Job {
         this.elapsedMS = elapsedMS;
     }
 
-    public int getRemainTries() {
+    public long getRemainTries() {
         return remainTries;
     }
 
